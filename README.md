@@ -198,13 +198,18 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-### サービス化（systemd）
-アプリケーションをバックグラウンドで常時起動させる場合：
+### サービス化（systemd）- サーバー再起動時の自動起動設定
+
+アプリケーションをバックグラウンドで常時起動し、サーバー再起動後も自動的に起動するようにします。
+
+#### 1. サービスファイルの作成
 
 ```bash
 # /etc/systemd/system/rating-app.service を作成
 sudo nano /etc/systemd/system/rating-app.service
 ```
+
+以下の内容を記述（`xxx`の部分は実際のユーザー名に置き換えてください）：
 
 ```ini
 [Unit]
@@ -212,22 +217,59 @@ Description=Bradley-Terry Rating Application
 After=network.target
 
 [Service]
-User=ike
-WorkingDirectory=/home/ike/rating-app
-Environment="PATH=/home/ike/rating-app/venv/bin"
-ExecStart=/home/ike/rating-app/venv/bin/gunicorn -c gunicorn_config.py app:app
+User=xxx
+WorkingDirectory=/home/xxx/rating-app
+Environment="PATH=/home/xxx/rating-app/venv/bin"
+ExecStart=/home/xxx/rating-app/venv/bin/gunicorn -c gunicorn_config.py app:app
 Restart=always
+RestartSec=10
 
 [Install]
 WantedBy=multi-user.target
 ```
 
+#### 2. サービスの有効化と起動
+
 ```bash
-# サービスの有効化と起動
+# systemdを再読み込み
+sudo systemctl daemon-reload
+
+# 既存のgunicornプロセスがあれば停止
+pkill -f "gunicorn.*app:app"
+
+# サービスを有効化（自動起動設定）
 sudo systemctl enable rating-app
+
+# サービスを起動
 sudo systemctl start rating-app
+
+# 状態確認
 sudo systemctl status rating-app
 ```
+
+#### 3. サービスの管理コマンド
+
+```bash
+# サービスの起動
+sudo systemctl start rating-app
+
+# サービスの停止
+sudo systemctl stop rating-app
+
+# サービスの再起動
+sudo systemctl restart rating-app
+
+# サービスの状態確認
+sudo systemctl status rating-app
+
+# ログの確認
+sudo journalctl -u rating-app -f
+
+# 自動起動の無効化
+sudo systemctl disable rating-app
+```
+
+これで、VPSサーバーを再起動しても自動的にアプリケーションが起動するようになります。
 
 ## トラブルシューティング
 
