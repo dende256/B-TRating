@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bradley-Terry レーティング分析</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+        
+        .header-nav {
+            margin-top: 15px;
+        }
+        
+        .header-nav a {
+            color: white;
+            text-decoration: none;
+            padding: 8px 20px;
+            border: 2px solid white;
+            border-radius: 20px;
+            font-weight: bold;
+            transition: all 0.3s;
+            display: inline-block;
+        }
+        
+        .header-nav a:hover {
+            background: white;
+            color: #667eea;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        
+        .upload-section {
+            text-align: center;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 10px;
+            padding: 40px;
+            margin: 20px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            background: #f8f9ff;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f1ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #764ba2;
+            background: #e8e9ff;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 10px;
+            color: #667eea;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1em;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-weight: bold;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .settings {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .form-group {
+            text-align: left;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #e0e0e0;
+            border-radius: 5px;
+            font-size: 1em;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        .results {
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-box {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+        }
+        
+        .stat-box .value {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        
+        .stat-box .label {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 5px;
+        }
+        
+        .ratings-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+        }
+        
+        .ratings-table th,
+        .ratings-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #e0e0e0;
+        }
+        
+        .ratings-table th {
+            background: #f8f9ff;
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .ratings-table tr:hover {
+            background: #f8f9ff;
+        }
+        
+        .rank {
+            font-weight: bold;
+            color: #667eea;
+        }
+        
+        .rating-positive {
+            color: #2ecc71;
+            font-weight: bold;
+        }
+        
+        .rating-negative {
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .player-row {
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .player-row:hover {
+            background: #f0f0f0 !important;
+        }
+        
+        .player-row.selected {
+            background: #e3f2fd !important;
+            border-left: 4px solid #2196f3;
+        }
+        
+        /* Win probability color coding */
+        .win-prob-90 {
+            background: #1b5e20 !important;
+            color: white !important;
+        }
+        
+        .win-prob-80 {
+            background: #388e3c !important;
+            color: white !important;
+        }
+        
+        .win-prob-75 {
+            background: #66bb6a !important;
+            color: white !important;
+        }
+        
+        .win-prob-66 {
+            background: #a5d6a7 !important;
+            color: black !important;
+        }
+        
+        .win-prob-50 {
+            background: #fff9c4 !important;
+            color: black !important;
+        }
+        
+        .win-prob-33 {
+            background: #ffccbc !important;
+            color: black !important;
+        }
+        
+        .win-prob-25 {
+            background: #ff8a65 !important;
+            color: white !important;
+        }
+        
+        .win-prob-20 {
+            background: #f4511e !important;
+            color: white !important;
+        }
+        
+        .win-prob-10 {
+            background: #c62828 !important;
+            color: white !important;
+        }
+        
+        /* Win matrix color classes */
+        .wp-90-100 { background-color: #006400; color: white; }
+        .wp-80-90 { background-color: #228B22; color: white; }
+        .wp-70-80 { background-color: #32CD32; color: white; }
+        .wp-60-70 { background-color: #90EE90; color: #000; }
+        .wp-50-60 { background-color: #F0F0F0; color: #000; }
+        .wp-40-50 { background-color: #FFB6C1; color: #000; }
+        .wp-30-40 { background-color: #FF69B4; color: white; }
+        .wp-20-30 { background-color: #FF1493; color: white; }
+        .wp-10-20 { background-color: #DC143C; color: white; }
+        .wp-0-10 { background-color: #8B0000; color: white; }
+        
+        .win-prob-cell {
+            font-weight: bold;
+        }
+        
+        #winMatrixTable thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        #winMatrixTable th {
+            padding: 12px 8px;
+            text-align: center;
+            border: 1px solid #ddd;
+            font-weight: bold;
+        }
+        
+        .prob-indicator {
+            display: none;
+            font-size: 0.85em;
+            font-weight: normal;
+            margin-left: 10px;
+        }
+        
+        .player-row.selected .prob-indicator,
+        .player-row:not(.selected) .prob-indicator {
+            /* Will be shown via JavaScript */
+        }
+        
+        .chart {
+            margin: 20px 0;
+            text-align: center;
+        }
+        
+        .chart img {
+            max-width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+        
+        .chart h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .loading.show {
+            display: block;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 10px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .error {
+            background: #fee;
+            border: 2px solid #e74c3c;
+            color: #c0392b;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .error.show {
+            display: block;
+        }
+        
+        .success {
+            background: #efe;
+            border: 2px solid #2ecc71;
+            color: #27ae60;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            display: none;
+        }
+        
+        .success.show {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚡ Bradley-Terry レーティング分析</h1>
+            <p>CSVファイルから試合結果を読み込み、プレイヤーの強さを分析します</p>
+            <div class="header-nav">
+                <a href="/results">📊 保存済み結果を見る</a>
+            </div>
+        </div>
+        
+        <div class="card upload-section">
+            <h2>📁 試合データをアップロード</h2>
+            
+            <div class="upload-area" id="uploadArea">
+                <div class="upload-icon">📄</div>
+                <p><strong>クリックしてファイルを選択</strong> または ドラッグ＆ドロップ</p>
+                <p style="color: #666; margin-top: 10px;">CSV形式 (勝者,敗者)</p>
+            </div>
+            
+            <input type="file" id="fileInput" class="file-input" accept=".csv">
+            
+            <div class="settings">
+                <div class="form-group">
+                    <label for="analysisTitle">分析タイトル:</label>
+                    <input type="text" id="analysisTitle" placeholder="例: 2024年トーナメント結果">
+                </div>
+                <div class="form-group">
+                    <label for="winnerCol">勝者列名:</label>
+                    <input type="text" id="winnerCol" value="winner" placeholder="winner">
+                </div>
+                <div class="form-group">
+                    <label for="loserCol">敗者列名:</label>
+                    <input type="text" id="loserCol" value="loser" placeholder="loser">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="saveResult" checked>
+                        結果を保存して共有可能にする
+                    </label>
+                </div>
+            </div>
+            
+            <button class="btn" id="uploadBtn" disabled>分析開始</button>
+            
+            <div class="error" id="errorMsg"></div>
+            <div class="success" id="successMsg"></div>
+            <div class="loading" id="loading">
+                <div class="spinner"></div>
+                <p>データを分析中...</p>
+            </div>
+        </div>
+        
+        <div class="card results" id="results">
+            <h2>📊 分析結果</h2>
+            
+            <div class="stats">
+                <div class="stat-box">
+                    <div class="value" id="numMatches">-</div>
+                    <div class="label">試合数</div>
+                </div>
+                <div class="stat-box">
+                    <div class="value" id="numPlayers">-</div>
+                    <div class="label">プレイヤー数</div>
+                </div>
+            </div>
+            
+            <h3>🏆 最終レーティング</h3>
+            <div style="background: #f0f7ff; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #2196f3;">
+                <p style="margin: 0 0 10px 0; font-weight: bold; color: #1976d2;">💡 使い方</p>
+                <p style="margin: 0; color: #555; line-height: 1.6;">
+                    テーブルの行をクリックすると、そのプレイヤーが他のプレイヤーに勝つ確率を色で表示します。<br>
+                    <span style="display: inline-block; padding: 2px 8px; background: #1b5e20; color: white; border-radius: 3px; margin: 5px 2px;">濃い緑</span> = 勝率90%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #388e3c; color: white; border-radius: 3px; margin: 5px 2px;">緑</span> = 80%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #66bb6a; color: white; border-radius: 3px; margin: 5px 2px;">薄緑</span> = 75%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #a5d6a7; color: black; border-radius: 3px; margin: 5px 2px;">明緑</span> = 66%以上<br>
+                    <span style="display: inline-block; padding: 2px 8px; background: #fff9c4; color: black; border-radius: 3px; margin: 5px 2px;">黄</span> = 互角(50%前後) 
+                    <span style="display: inline-block; padding: 2px 8px; background: #ffccbc; color: black; border-radius: 3px; margin: 5px 2px;">明橙</span> = 負け率66%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #ff8a65; color: white; border-radius: 3px; margin: 5px 2px;">橙</span> = 75%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #f4511e; color: white; border-radius: 3px; margin: 5px 2px;">赤橙</span> = 80%以上 
+                    <span style="display: inline-block; padding: 2px 8px; background: #c62828; color: white; border-radius: 3px; margin: 5px 2px;">濃い赤</span> = 90%以上
+                </p>
+            </div>
+            <table class="ratings-table" id="ratingsTable">
+                <thead>
+                    <tr>
+                        <th>順位</th>
+                        <th>プレイヤー</th>
+                        <th>平均レーティング</th>
+                        <th>95% 信頼区間</th>
+                        <th>標準偏差</th>
+                    </tr>
+                </thead>
+                <tbody id="ratingsBody">
+                </tbody>
+            </table>
+            
+            <div class="chart">
+                <h3>📊 レーティングランキング（信頼区間付き）</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    各プレイヤーのレーティングを95%信頼区間とともに表示。<br>
+                    エラーバー（黒線）が長いほど不確実性が高い（試合数が少ない）ことを示します。
+                </p>
+                <img id="confidenceChart" src="" alt="信頼区間付きランキング">
+            </div>
+            
+            <div class="chart">
+                <h3>📈 レーティンググラフ</h3>
+                <img id="ratingsChart" src="" alt="レーティンググラフ">
+            </div>
+            
+            <div class="chart">
+                <h3>📉 収束グラフ</h3>
+                <img id="convergenceChart" src="" alt="収束グラフ">
+            </div>
+            
+            <div class="chart">
+                <h3>📊 レーティング推移</h3>
+                <img id="evolutionChart" src="" alt="レーティング推移">
+            </div>
+            
+            <div id="winMatrixSection" style="display: none;">
+                <h3>🎯 対戦勝率マトリックス</h3>
+                <p style="color: #666; margin-bottom: 15px;">
+                    各セルは行のプレイヤーが列のプレイヤーに勝つ確率を表示<br>
+                    <span style="display: inline-block; padding: 2px 8px; background: #006400; color: white; border-radius: 3px; margin: 2px;">濃緑</span> 90%以上
+                    <span style="display: inline-block; padding: 2px 8px; background: #228B22; color: white; border-radius: 3px; margin: 2px;">緑</span> 80-90%
+                    <span style="display: inline-block; padding: 2px 8px; background: #32CD32; color: white; border-radius: 3px; margin: 2px;">薄緑</span> 70-80%
+                    <span style="display: inline-block; padding: 2px 8px; background: #90EE90; color: black; border-radius: 3px; margin: 2px;">明緑</span> 60-70%
+                    <span style="display: inline-block; padding: 2px 8px; background: #F0F0F0; color: black; border-radius: 3px; margin: 2px;">灰</span> 50-60%
+                    <span style="display: inline-block; padding: 2px 8px; background: #FFB6C1; color: black; border-radius: 3px; margin: 2px;">明桃</span> 40-50%
+                    <span style="display: inline-block; padding: 2px 8px; background: #FF69B4; color: white; border-radius: 3px; margin: 2px;">桃</span> 30-40%
+                    <span style="display: inline-block; padding: 2px 8px; background: #FF1493; color: white; border-radius: 3px; margin: 2px;">赤桃</span> 20-30%
+                    <span style="display: inline-block; padding: 2px 8px; background: #DC143C; color: white; border-radius: 3px; margin: 2px;">赤</span> 10-20%
+                    <span style="display: inline-block; padding: 2px 8px; background: #8B0000; color: white; border-radius: 3px; margin: 2px;">濃赤</span> 10%未満
+                </p>
+                <div style="overflow-x: auto;">
+                    <table id="winMatrixTable" style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const loading = document.getElementById('loading');
+        const errorMsg = document.getElementById('errorMsg');
+        const successMsg = document.getElementById('successMsg');
+        const results = document.getElementById('results');
+        
+        let selectedFile = null;
+        let currentData = null;  // Store current results data
+        
+        // Click to upload
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                uploadArea.querySelector('p').innerHTML = `<strong>選択済み:</strong> ${selectedFile.name}`;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                fileInput.files = e.dataTransfer.files;
+                uploadArea.querySelector('p').innerHTML = `<strong>選択済み:</strong> ${selectedFile.name}`;
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Upload button
+        uploadBtn.addEventListener('click', async () => {
+            if (!selectedFile) return;
+            
+            errorMsg.classList.remove('show');
+            successMsg.classList.remove('show');
+            results.classList.remove('show');
+            loading.classList.add('show');
+            uploadBtn.disabled = true;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            formData.append('winner_col', document.getElementById('winnerCol').value);
+            formData.append('loser_col', document.getElementById('loserCol').value);
+            
+            // Add title and save option
+            const titleInput = document.getElementById('analysisTitle');
+            const title = titleInput.value.trim() || selectedFile.name;
+            formData.append('title', title);
+            
+            const saveResult = document.getElementById('saveResult').checked;
+            formData.append('save_result', saveResult ? 'true' : 'false');
+            
+            try {
+                const response = await fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    displayResults(data);
+                    
+                    // Show success message with share link if saved
+                    if (data.result_url) {
+                        successMsg.innerHTML = `✓ 分析が完了しました！<br>
+                            <a href="${data.result_url}" style="color: white; text-decoration: underline;" target="_blank">
+                                共有用URLを開く
+                            </a>`;
+                    } else {
+                        successMsg.textContent = '✓ 分析が完了しました！';
+                    }
+                    successMsg.classList.add('show');
+                } else {
+                    throw new Error(data.error || 'エラーが発生しました');
+                }
+            } catch (error) {
+                errorMsg.textContent = `✗ ${error.message}`;
+                errorMsg.classList.add('show');
+            } finally {
+                loading.classList.remove('show');
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        function displayResults(data) {
+            currentData = data;  // Store for later use
+            
+            // Stats
+            document.getElementById('numMatches').textContent = data.num_matches;
+            document.getElementById('numPlayers').textContent = data.num_players;
+            
+            // Ratings table with confidence intervals
+            const tbody = document.getElementById('ratingsBody');
+            tbody.innerHTML = '';
+            data.ratings.forEach((item, index) => {
+                const tr = document.createElement('tr');
+                tr.className = 'player-row';
+                tr.dataset.player = item.player;  // Store player name
+                
+                const ratingClass = item.mean >= 0 ? 'rating-positive' : 'rating-negative';
+                const ciWidth = item.ci_upper - item.ci_lower;
+                const ciStr = `[${item.ci_lower.toFixed(3)}, ${item.ci_upper.toFixed(3)}]`;
+                const widthIndicator = ciWidth > 0.5 ? '⚠️' : '';
+                
+                tr.innerHTML = `
+                    <td class="rank">${index + 1}</td>
+                    <td>
+                        ${item.player}
+                        <span class="prob-indicator" data-player="${item.player}"></span>
+                    </td>
+                    <td class="${ratingClass}">${item.mean.toFixed(4)}</td>
+                    <td style="font-size: 0.9em;">${ciStr} ${widthIndicator}</td>
+                    <td style="color: #666;">${item.std.toFixed(4)}</td>
+                `;
+                
+                // Add click handler
+                tr.addEventListener('click', function() {
+                    handlePlayerSelection(item.player, this);
+                });
+                
+                tbody.appendChild(tr);
+            });
+            
+            // Charts
+            if (data.charts.ratings_confidence) {
+                document.getElementById('confidenceChart').src = `data:image/png;base64,${data.charts.ratings_confidence}`;
+            }
+            document.getElementById('ratingsChart').src = `data:image/png;base64,${data.charts.ratings_bar}`;
+            document.getElementById('convergenceChart').src = `data:image/png;base64,${data.charts.convergence_line}`;
+            document.getElementById('evolutionChart').src = `data:image/png;base64,${data.charts.rating_evolution}`;
+            
+            // Display win probability matrix
+            displayWinMatrix(data);
+            
+            // Show results
+            results.classList.add('show');
+            results.scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function handlePlayerSelection(selectedPlayer, selectedRow) {
+            if (!currentData || !currentData.win_probabilities) return;
+            
+            const allRows = document.querySelectorAll('.player-row');
+            const wasSelected = selectedRow.classList.contains('selected');
+            
+            // Clear previous selection
+            allRows.forEach(row => {
+                row.classList.remove('selected');
+                row.className = 'player-row';  // Remove all prob classes
+                const indicator = row.querySelector('.prob-indicator');
+                if (indicator) {
+                    indicator.style.display = 'none';
+                    indicator.textContent = '';
+                }
+            });
+            
+            // If clicking the same row, just deselect
+            if (wasSelected) return;
+            
+            // Select new row
+            selectedRow.classList.add('selected');
+            
+            // Color code all rows based on win probability
+            const winProbs = currentData.win_probabilities[selectedPlayer];
+            
+            allRows.forEach(row => {
+                const opponent = row.dataset.player;
+                if (!opponent || opponent === selectedPlayer) return;
+                
+                const prob = winProbs[opponent];
+                const indicator = row.querySelector('.prob-indicator');
+                
+                // Determine color class
+                let colorClass = '';
+                if (prob >= 0.90) {
+                    colorClass = 'win-prob-90';
+                } else if (prob >= 0.80) {
+                    colorClass = 'win-prob-80';
+                } else if (prob >= 0.75) {
+                    colorClass = 'win-prob-75';
+                } else if (prob >= 0.66) {
+                    colorClass = 'win-prob-66';
+                } else if (prob >= 0.50) {
+                    colorClass = 'win-prob-50';
+                } else if (prob >= 0.34) {
+                    colorClass = 'win-prob-33';
+                } else if (prob >= 0.25) {
+                    colorClass = 'win-prob-25';
+                } else if (prob >= 0.20) {
+                    colorClass = 'win-prob-20';
+                } else {
+                    colorClass = 'win-prob-10';
+                }
+                
+                row.classList.add(colorClass);
+                
+                // Show probability
+                if (indicator) {
+                    indicator.style.display = 'inline';
+                    indicator.textContent = `(勝率 ${(prob * 100).toFixed(1)}%)`;
+                }
+            });
+        }
+        
+        function displayWinMatrix(data) {
+            console.log('displayWinMatrix called', data);
+            if (!data.win_probabilities) {
+                console.log('No win_probabilities in data');
+                return;
+            }
+            
+            const section = document.getElementById('winMatrixSection');
+            const table = document.getElementById('winMatrixTable');
+            
+            console.log('Building matrix for', data.ratings.length, 'players');
+            
+            // Build matrix
+            let html = '<thead><tr><th>選手</th>';
+            data.ratings.forEach(rating => {
+                html += `<th>${rating.player}</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            data.ratings.forEach(rating => {
+                html += `<tr><th>${rating.player}</th>`;
+                data.ratings.forEach(opponent => {
+                    const prob = data.win_probabilities[rating.player][opponent.player];
+                    const probPct = Math.round(prob * 100);
+                    
+                    let colorClass = '';
+                    if (prob >= 0.9) colorClass = 'wp-90-100';
+                    else if (prob >= 0.8) colorClass = 'wp-80-90';
+                    else if (prob >= 0.7) colorClass = 'wp-70-80';
+                    else if (prob >= 0.6) colorClass = 'wp-60-70';
+                    else if (prob >= 0.5) colorClass = 'wp-50-60';
+                    else if (prob >= 0.4) colorClass = 'wp-40-50';
+                    else if (prob >= 0.3) colorClass = 'wp-30-40';
+                    else if (prob >= 0.2) colorClass = 'wp-20-30';
+                    else if (prob >= 0.1) colorClass = 'wp-10-20';
+                    else colorClass = 'wp-0-10';
+                    
+                    html += `<td class="win-prob-cell ${colorClass}" style="padding: 8px; text-align: center; border: 1px solid #ddd; font-weight: bold;">${probPct}%</td>`;
+                });
+                html += '</tr>';
+            });
+            html += '</tbody>';
+            
+            table.innerHTML = html;
+            section.style.display = 'block';
+            console.log('Matrix displayed');
+        }
+    </script>
+</body>
+</html>
