@@ -97,6 +97,26 @@ server {
 }
 ```
 
+### 7. 日本語フォント設定（文字化け対策）
+
+日本語（漢字・カナ）を含むグラフの軸やラベルが文字化けする場合は、
+matplotlibのフォントを `Noto Sans CJK JP` に設定してください。
+
+1. サーバーに日本語フォントをインストール
+
+```bash
+sudo apt install fonts-noto-cjk
+```
+
+2. `app.py` のmatplotlib設定直後に以下を追加
+
+```python
+import matplotlib.pyplot as plt
+plt.rcParams['font.family'] = 'Noto Sans CJK JP'
+```
+
+これでグラフの日本語が正しく表示されます。
+
 ## データフォーマット
 
 CSVファイルは以下の形式である必要があります：
