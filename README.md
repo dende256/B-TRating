@@ -117,6 +117,24 @@ plt.rcParams['font.family'] = 'Noto Sans CJK JP'
 
 これでグラフの日本語が正しく表示されます。
 
+#### VPS/WSLで日本語フォントを有効化するための追加手順
+
+1. 日本語フォント（Noto Sans CJK JP）とfontconfigをインストール
+
+```bash
+sudo apt update
+sudo apt install fonts-noto-cjk fontconfig
+```
+
+2. インストール確認（Noto Sans CJK JPが表示されればOK）
+```bash
+fc-list | grep "Noto Sans CJK JP"
+```
+
+3. Flask/gunicornアプリを再起動
+
+これでVPS/WSL環境でもmatplotlibの日本語グラフが正しく表示されます。
+
 ## データフォーマット
 
 CSVファイルは以下の形式である必要があります：
