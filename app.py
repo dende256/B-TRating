@@ -14,6 +14,8 @@ from io import BytesIO, StringIO
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend
 import matplotlib.pyplot as plt
+# 日本語フォント設定（Noto Sans CJK JP）
+plt.rcParams['font.family'] = 'Noto Sans CJK JP'
 import numpy as np
 from bt_rating import load_matches_from_csv, fit_bradley_terry, analyze_rating_convergence
 from bt_rating_bayesian import mcmc_bradley_terry
@@ -249,49 +251,62 @@ def generate_charts(ratings, convergence_data, bayesian_results=None):
     charts = {}
     
     # Chart 1: Ratings with Confidence Intervals
-    if bayesian_results:
-        fig, ax = plt.subplots(figsize=(12, max(8, len(ratings) * 0.5)))
-        
-        # Sort by mean rating
-        players_sorted = sorted(bayesian_results['mean'].items(), key=lambda x: -x[1])
-        players = [p[0] for p in players_sorted]
-        means = [bayesian_results['mean'][p] for p in players]
-        ci_lower = [bayesian_results['ci_lower'][p] for p in players]
-        ci_upper = [bayesian_results['ci_upper'][p] for p in players]
-        
-        # Calculate error bars (distance from mean to CI bounds)
-        errors_lower = [means[i] - ci_lower[i] for i in range(len(players))]
-        errors_upper = [ci_upper[i] - means[i] for i in range(len(players))]
-        
-        y_pos = np.arange(len(players))
-        
-        # Plot horizontal bars with error bars
-        colors = ['#2ecc71' if m > 0 else '#e74c3c' for m in means]
-        ax.barh(y_pos, means, color=colors, alpha=0.7, height=0.6)
-        ax.errorbar(means, y_pos, xerr=[errors_lower, errors_upper],
-                   fmt='none', ecolor='black', capsize=5, capthick=2, linewidth=2)
-        
-        ax.set_yticks(y_pos)
-        ax.set_yticklabels(players, fontsize=11)
-        ax.axvline(x=0, color='black', linestyle='-', linewidth=1.2)
-        ax.set_xlabel('Log-Strength Rating', fontsize=13, fontweight='bold')
-        ax.set_ylabel('Player (Ranked)', fontsize=13, fontweight='bold')
-        ax.set_title('Player Rankings with 95% Confidence Intervals', 
-                    fontsize=15, fontweight='bold', pad=20)
-        ax.grid(axis='x', alpha=0.3, linestyle='--')
-        
-        # Add rank numbers
-        for i, (player, mean) in enumerate(players_sorted):
-            rank_x = min(means) - (max(means) - min(means)) * 0.15
-            ax.text(rank_x, i, f'#{i+1}', 
-                   fontsize=12, fontweight='bold', 
-                   ha='center', va='center',
-                   bbox=dict(boxstyle='round,pad=0.3', facecolor='lightblue', alpha=0.7))
-        
-        plt.tight_layout()
-        
+    try:
+        if bayesian_results and 'mean' in bayesian_results and 'ci_lower' in bayesian_results and 'ci_upper' in bayesian_results:
+            fig, ax = plt.subplots(figsize=(12, max(8, len(ratings) * 0.5)))
+            # Sort by mean rating
+            players_sorted = sorted(bayesian_results['mean'].items(), key=lambda x: -x[1])
+            players = [p[0] for p in players_sorted]
+            means = [bayesian_results['mean'][p] for p in players]
+            ci_lower = [bayesian_results['ci_lower'][p] for p in players]
+            ci_upper = [bayesian_results['ci_upper'][p] for p in players]
+            # Calculate error bars (distance from mean to CI bounds)
+            errors_lower = [means[i] - ci_lower[i] for i in range(len(players))]
+            errors_upper = [ci_upper[i] - means[i] for i in range(len(players))]
+            y_pos = np.arange(len(players))
+            # Plot horizontal bars with error bars
+            colors = ['#2ecc71' if m > 0 else '#e74c3c' for m in means]
+            ax.barh(y_pos, means, color=colors, alpha=0.7, height=0.6)
+            ax.errorbar(means, y_pos, xerr=[errors_lower, errors_upper],
+                       fmt='none', ecolor='black', capsize=5, capthick=2, linewidth=2)
+            ax.set_yticks(y_pos)
+            ax.set_yticklabels(players, fontsize=11)
+            ax.axvline(x=0, color='black', linestyle='-', linewidth=1.2)
+            ax.set_xlabel('Log-Strength Rating', fontsize=13, fontweight='bold')
+            ax.set_ylabel('Player (Ranked)', fontsize=13, fontweight='bold')
+            ax.set_title('Player Rankings with 95% Confidence Intervals', 
+                        fontsize=15, fontweight='bold', pad=20)
+            ax.grid(axis='x', alpha=0.3, linestyle='--')
+            # Add rank numbers
+            for i, (player, mean) in enumerate(players_sorted):
+                rank_x = min(means) - (max(means) - min(means)) * 0.15
+                ax.text(rank_x, i, f'#{i+1}', 
+                       fontsize=12, fontweight='bold', 
+                       ha='center', va='center',
+                       bbox=dict(boxstyle='round,pad=0.3', facecolor='lightblue', alpha=0.7))
+            plt.tight_layout()
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=120, bbox_inches='tight')
+            buffer.seek(0)
+            charts['ratings_confidence'] = base64.b64encode(buffer.read()).decode('utf-8')
+            plt.close()
+        else:
+            # bayesian_resultsが不正な場合は空画像を返す
+            fig, ax = plt.subplots(figsize=(6, 2))
+            ax.text(0.5, 0.5, 'No Data', ha='center', va='center', fontsize=16)
+            ax.axis('off')
+            buffer = BytesIO()
+            plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
+            buffer.seek(0)
+            charts['ratings_confidence'] = base64.b64encode(buffer.read()).decode('utf-8')
+            plt.close()
+    except Exception as e:
+        # 例外時も空画像を返す
+        fig, ax = plt.subplots(figsize=(6, 2))
+        ax.text(0.5, 0.5, 'No Data', ha='center', va='center', fontsize=16)
+        ax.axis('off')
         buffer = BytesIO()
-        plt.savefig(buffer, format='png', dpi=120, bbox_inches='tight')
+        plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
         buffer.seek(0)
         charts['ratings_confidence'] = base64.b64encode(buffer.read()).decode('utf-8')
         plt.close()
