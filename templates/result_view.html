@@ -398,6 +398,13 @@
                 <img src="data:image/png;base64,{{ result.charts.ratings_confidence }}" alt="Ratings with Confidence Intervals">
             </div>
             {% endif %}
+
+            {% if result.charts.ratings_bar %}
+            <div class="chart-container">
+                <h3 style="margin-bottom: 15px;">最終レーティング（log-strength）</h3>
+                <img src="data:image/png;base64,{{ result.charts.ratings_bar }}" alt="Final Player Ratings">
+            </div>
+            {% endif %}
             
             {% if result.charts.convergence_line %}
             <div class="chart-container">
