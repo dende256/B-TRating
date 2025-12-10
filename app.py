@@ -358,6 +358,16 @@ def generate_charts(ratings, convergence_data, bayesian_results=None):
     colors = ['#2ecc71' if r > 0 else '#e74c3c' for r in rating_values]
     ax.barh(player_names, rating_values, color=colors)
     ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
+    # スケール調整: プレイヤー間の差が分かりやすいように余白を追加
+    if rating_values:
+        min_r = min(rating_values)
+        max_r = max(rating_values)
+        if min_r == max_r:
+            # 全員同じ値の場合は±1の余白
+            ax.set_xlim(min_r - 1, max_r + 1)
+        else:
+            margin = (max_r - min_r) * 0.2
+            ax.set_xlim(min_r - margin, max_r + margin)
     ax.set_xlabel('Rating (Log-strength)', fontsize=12)
     ax.set_ylabel('Player', fontsize=12)
     ax.set_title('Final Player Ratings', fontsize=14, fontweight='bold')
