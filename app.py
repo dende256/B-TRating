@@ -247,15 +247,53 @@ def upload_csv():
 
 
 def generate_charts(ratings, convergence_data, bayesian_results=None):
-    """Generate base64-encoded chart images"""
     charts = {}
-    
+    # 一度も勝っていないプレイヤーを除外するための勝利数集計
+    if ratings:
+        min_rating = min(ratings.values())
+        filtered_players = [p for p in ratings if ratings[p] > min_rating]
+        if len(set(ratings.values())) == 1:
+            filtered_players = list(ratings.keys())
+    else:
+        filtered_players = list(ratings.keys())
+
+    # Chart 5: 信頼区間の重なり可視化（エラーバー付き横棒グラフ）
+    if bayesian_results and 'mean' in bayesian_results and 'ci_lower' in bayesian_results and 'ci_upper' in bayesian_results:
+        fig, ax = plt.subplots(figsize=(12, max(8, len(filtered_players) * 0.5)))
+        # プレイヤーをmeanで降順ソート
+        players_sorted = sorted([(p, bayesian_results['mean'][p]) for p in filtered_players], key=lambda x: -x[1])
+        players = [p[0] for p in players_sorted]
+        means = [bayesian_results['mean'][p] for p in players]
+        ci_lower = [bayesian_results['ci_lower'][p] for p in players]
+        ci_upper = [bayesian_results['ci_upper'][p] for p in players]
+        errors_lower = [means[i] - ci_lower[i] for i in range(len(players))]
+        errors_upper = [ci_upper[i] - means[i] for i in range(len(players))]
+        y_pos = np.arange(len(players))
+        # 横棒グラフ（エラーバー付き）
+        ax.errorbar(means, y_pos, xerr=[errors_lower, errors_upper], fmt='o', ecolor='blue', capsize=5, capthick=2, linewidth=2, color='black')
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(players, fontsize=11)
+        ax.axvline(x=0, color='black', linestyle='-', linewidth=1.2)
+        ax.set_xlabel('Mean Rating (with 95% CI)', fontsize=13, fontweight='bold')
+        ax.set_ylabel('Player', fontsize=13, fontweight='bold')
+        ax.set_title('95% Confidence Interval Overlap', fontsize=15, fontweight='bold', pad=20)
+        ax.grid(axis='x', alpha=0.3, linestyle='--')
+        plt.tight_layout()
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', dpi=120, bbox_inches='tight')
+        buffer.seek(0)
+        charts['ci_overlap'] = base64.b64encode(buffer.read()).decode('utf-8')
+        plt.close()
+
+    # 一度も勝っていないプレイヤーを除外するための勝利数集計
+    # (moved up, charts initialization should only happen once at the top of the function)
+
     # Chart 1: Ratings with Confidence Intervals
     try:
         if bayesian_results and 'mean' in bayesian_results and 'ci_lower' in bayesian_results and 'ci_upper' in bayesian_results:
-            fig, ax = plt.subplots(figsize=(12, max(8, len(ratings) * 0.5)))
+            fig, ax = plt.subplots(figsize=(12, max(8, len(filtered_players) * 0.5)))
             # Sort by mean rating
-            players_sorted = sorted(bayesian_results['mean'].items(), key=lambda x: -x[1])
+            players_sorted = sorted([(p, bayesian_results['mean'][p]) for p in filtered_players], key=lambda x: -x[1])
             players = [p[0] for p in players_sorted]
             means = [bayesian_results['mean'][p] for p in players]
             ci_lower = [bayesian_results['ci_lower'][p] for p in players]
@@ -313,10 +351,10 @@ def generate_charts(ratings, convergence_data, bayesian_results=None):
     
     # Chart 2: Simple Bar Chart (original)
     fig, ax = plt.subplots(figsize=(10, 6))
-    players = sorted(ratings.items(), key=lambda x: -x[1])
+    # 一度も勝っていないプレイヤーを除外
+    players = sorted([(p, ratings[p]) for p in filtered_players], key=lambda x: -x[1])
     player_names = [p[0] for p in players]
     rating_values = [p[1] for p in players]
-    
     colors = ['#2ecc71' if r > 0 else '#e74c3c' for r in rating_values]
     ax.barh(player_names, rating_values, color=colors)
     ax.axvline(x=0, color='black', linestyle='-', linewidth=0.8)
@@ -325,7 +363,6 @@ def generate_charts(ratings, convergence_data, bayesian_results=None):
     ax.set_title('Final Player Ratings', fontsize=14, fontweight='bold')
     ax.grid(axis='x', alpha=0.3)
     plt.tight_layout()
-    
     # Convert to base64
     buffer = BytesIO()
     plt.savefig(buffer, format='png', dpi=100, bbox_inches='tight')
