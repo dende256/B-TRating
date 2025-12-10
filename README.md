@@ -1,4 +1,5 @@
 # Bradley-Terry レーティング分析システム
+# 📊 [B-TRatingのグラフ解説・ドキュメントはこちら](docs/graph_explanation.md)
 
 CSVファイルから試合結果を読み込み、Bradley-Terryモデルを使用してプレイヤーの強さを分析するWebアプリケーションです。
 
@@ -133,7 +134,7 @@ fc-list | grep "Noto Sans CJK JP"
 
 3. Flask/gunicornアプリを再起動
 
-これでVPS/WSL環境でもmatplotlibの日本語グラフが正しく表示されます。
+これでmatplotlibの日本語グラフが正しく表示されます。
 
 ## データフォーマット
 
