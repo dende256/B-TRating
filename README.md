@@ -1,5 +1,5 @@
 # Bradley-Terry レーティング分析システム
-# 📊 [B-TRatingのグラフ解説・ドキュメントはこちら](docs/graph_explanation.md)
+# 📊 [B-TRatingの表・グラフ説明はこちら](docs/graph_explanation.md)
 
 CSVファイルから試合結果を読み込み、Bradley-Terryモデルを使用してプレイヤーの強さを分析するWebアプリケーションです。
 
